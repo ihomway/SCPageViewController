@@ -225,8 +225,8 @@
 	}
 	[self.visibleControllers removeAllObjects];
 	
-	if(oldNumberOfPages >= self.numberOfPages) {
-		NSUInteger index = MAX(0, (NSInteger)self.numberOfPages - 1);
+	if(oldNumberOfPages > self.numberOfPages) {
+		NSUInteger index = MIN(self.currentPage, (NSInteger)self.numberOfPages - 1);
 		[self navigateToPageAtIndex:index animated:NO completion:nil];
 	} else {
 		[self _updateBoundsAndConstraints];
