@@ -98,7 +98,7 @@
 	self.layouterInterItemSpacing = 0.0f;
 	
 	self.scrollView = [[SCScrollView alloc] init];
-	self.scrollView.autoresizingMask = UIViewAutoresizingFlexibleRightMargin | UIViewAutoresizingFlexibleBottomMargin | UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+	self.scrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
 	self.scrollView.showsVerticalScrollIndicator = NO;
 	self.scrollView.showsHorizontalScrollIndicator = NO;
 	self.scrollView.decelerationRate = UIScrollViewDecelerationRateFast;
@@ -119,7 +119,13 @@
 	[self.view setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
 	
 	[self.scrollView setFrame:self.view.bounds];
-	[self.view addSubview:self.scrollView];
+    
+    // Prevents _adjustContentOffsetIfNecessary from triggering
+    UIView *scrollViewWrapper = [[UIView alloc] initWithFrame:self.view.bounds];
+    [scrollViewWrapper setAutoresizingMask:UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
+    [scrollViewWrapper addSubview:self.scrollView];
+    
+	[self.view addSubview:scrollViewWrapper];
 	
 	[self reloadData];
 }
@@ -189,6 +195,8 @@
 		
 		[self _sortSubviewsByZPosition];
 		[self _tilePages];
+        
+        [self.view layoutIfNeeded];
 	};
 	
 	if(animated) {
@@ -586,6 +594,9 @@
 		}
 		
 		remainder = [self _subtractRect:intersection fromRect:remainder withEdge:edge];
+        
+        CATransform3D previousTransform = viewController.view.layer.transform;
+        [self _setAnimatableSublayerTransform:CATransform3DIdentity forViewController:viewController];
 				
 		// Finally, trigger appearance callbacks and new frame
 		if(visible && ![self.visibleControllers containsObject:viewController]) {
@@ -618,6 +629,8 @@
                                                                   pageViewController:self];
             
             [self _setAnimatableSublayerTransform:transform forViewController:viewController];
+        } else {
+            [self _setAnimatableSublayerTransform:previousTransform forViewController:viewController];
         }
     }];
 }
@@ -1177,7 +1190,7 @@
 	}];
 	
 	void(^updateLayout)() = ^{
-		if(shouldAdjustOffset && self.pagingEnabled) {
+		if(shouldAdjustOffset) {
 			[self _blockContentOffsetOnPageAtIndex:(self.currentPage + indexes.count)];
 		}
 		[self _updateBoundsAndConstraints];
@@ -1247,7 +1260,7 @@
 				dispatch_group_leave(animationsDispatchGroup);
 			}];
 			
-			if(shouldAdjustOffset && self.pagingEnabled) {
+			if(shouldAdjustOffset) {
 				dispatch_group_enter(animationsDispatchGroup);
 				[UIView animateWithDuration:self.animationDuration animations:^{
 					
@@ -1262,7 +1275,9 @@
 					dispatch_group_leave(animationsDispatchGroup);
 				}];
 			}
-		}
+        } else {
+            [viewController.view removeFromSuperview];
+        }
 		
 		// Update page indexes
 		[self.pages removeObjectAtIndex:pageIndex];
@@ -1270,7 +1285,7 @@
 	
 	// Update the content offset and pages layout
 	void (^updateLayout)() = ^{
-		if(shouldAdjustOffset && self.pagingEnabled) {
+		if(shouldAdjustOffset) {
 			[self _blockContentOffsetOnPageAtIndex:(self.currentPage - indexes.count)];
 		}
 		
@@ -1365,7 +1380,7 @@
 	}
 	
 	// Update the scrollView's offset
-	if(shouldAdjustOffset && self.pagingEnabled) {
+	if(shouldAdjustOffset) {
 		[self _blockContentOffsetOnPageAtIndex:self.currentPage];
 	}
 	
@@ -1384,7 +1399,7 @@
 	
 	dispatch_group_notify(animationsDispatchGroup, dispatch_get_main_queue(), ^{
 		
-		if(shouldAdjustOffset && self.pagingEnabled) {
+		if(shouldAdjustOffset) {
 			if(fromIndex < toIndex) {
 				[self _blockContentOffsetOnPageAtIndex:(self.currentPage - 1)];
 			} else {
